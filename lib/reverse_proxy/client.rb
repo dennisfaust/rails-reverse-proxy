@@ -43,7 +43,8 @@ module ReverseProxy
         path:       nil,
         username:   nil,
         password:   nil,
-        verify_ssl: true
+        verify_ssl: true,
+        logger: nil
       )
 
       source_request = Rack::Request.new(env)
@@ -56,7 +57,6 @@ module ReverseProxy
 
       # Setup headers
       target_request_headers = extract_http_request_headers(source_request.env).merge(options[:headers])
-
       target_request.initialize_http_header(target_request_headers)
 
       # Basic auth
@@ -90,8 +90,15 @@ module ReverseProxy
       Net::HTTP.start(uri.hostname, uri.port, http_options) do |http|
         callbacks[:on_connect].call(http)
         target_response = http.request(target_request)
-      end
 
+        if options[:logger]
+          logger = options[:logger]
+          logger.info "HEADERS:\n #{target_request_headers}"
+          logger.info "URI:\n #{uri}"
+          logger.info "BODY: \n #{source_request.body}"
+          logger.info "\nRESPONSE:\n #{target_response} STATUS: #{target_response.code}"
+        end
+      end
       status_code = target_response.code.to_i
       payload = [status_code, target_response]
 
